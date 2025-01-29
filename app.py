@@ -10,7 +10,7 @@ import plotly.graph_objs as go
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
 app.title = "株価予測ダッシュボード"
 
-# Flaskのサーバーインスタンスを取得（RenderでのGunicorn起動用）
+# Flaskのサーバーインスタンスを取得（Gunicorn用）
 server = app.server  # これを追加！
 
 # アプリケーションのレイアウト
@@ -136,6 +136,6 @@ def get_realtime_data(n_clicks, ticker):
     except Exception as e:
         return dbc.Alert(f"Error: {e}", color="danger")
 
-# アプリケーションの起動
+# アプリケーションの起動（ローカル実行用）
 if __name__ == "__main__":
-    app.run(debug=True)
+    server.run(debug=True, host="0.0.0.0", port=8080)  # 必ず `port=8080` を設定！

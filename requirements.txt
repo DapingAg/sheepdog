@@ -4,3 +4,4 @@ yfinance
 prophet
 plotly
 gunicorn
+Flask
