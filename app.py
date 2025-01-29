@@ -5,6 +5,7 @@ import yfinance as yf
 from prophet import Prophet
 import pandas as pd
 import plotly.graph_objs as go
+import os
 
 # Dashアプリケーションの初期化（Bootstrapテーマ適用）
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
@@ -62,80 +63,7 @@ app.layout = dbc.Container([
     ])
 ], fluid=True)
 
-# 日付フォーマット修正関数
-def fix_date_format(date_str):
-    try:
-        return pd.to_datetime(date_str).strftime("%Y-%m-%d")
-    except Exception:
-        raise ValueError("日付フォーマットが正しくありません。YYYY-MM-DD形式で入力してください。")
-
-# 株価予測コールバック
-@app.callback(
-    Output("prediction-output", "children"),
-    Input("predict_button", "n_clicks"),
-    State("tickers", "value"),
-    State("start_date", "value"),
-    State("end_date", "value"),
-    State("forecast_days", "value"),
-)
-def predict_stock_price(n_clicks, tickers, start_date, end_date, forecast_days):
-    if n_clicks == 0:
-        return ""
-
-    try:
-        start_date = fix_date_format(start_date)
-        end_date = fix_date_format(end_date)
-    except ValueError as e:
-        return dbc.Alert(str(e), color="danger")
-
-    tickers = tickers.split(",")[:4]
-    graphs = []
-    for ticker in tickers:
-        ticker = ticker.strip()
-        try:
-            data = yf.download(ticker, start=start_date, end=end_date)
-            if data.empty:
-                raise ValueError(f"{ticker} にデータが見つかりません。")
-            data = data[['Close']].reset_index()
-            data.columns = ['ds', 'y']
-            data['ds'] = pd.to_datetime(data['ds'])
-            data['ds'] = data['ds'].dt.tz_localize(None)
-
-            # Prophetモデルで予測
-            model = Prophet()
-            model.fit(data)
-            future = model.make_future_dataframe(periods=int(forecast_days))
-            forecast = model.predict(future)
-
-            # グラフ作成
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=data['ds'], y=data['y'], mode="lines", name=f"{ticker} 実績"))
-            fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], mode="lines", name=f"{ticker} 予測"))
-            fig.update_layout(title=f"{ticker} 株価予測", xaxis_title="Day", yaxis_title="Price")
-            graphs.append(dcc.Graph(figure=fig))
-        except Exception as e:
-            graphs.append(dbc.Alert(f"{ticker} のエラー: {e}", color="danger"))
-    return graphs
-
-# リアルタイム株価データコールバック
-@app.callback(
-    Output("realtime-output", "children"),
-    Input("realtime_button", "n_clicks"),
-    State("realtime_ticker", "value"),
-)
-def get_realtime_data(n_clicks, ticker):
-    if n_clicks == 0:
-        return ""
-
-    try:
-        data = yf.download(ticker, period="1d", interval="1d")
-        if data.empty:
-            raise ValueError(f"{ticker} にデータが見つかりません。")
-        latest_price = float(data["Close"].iloc[-1])
-        return dbc.Alert(f"{ticker} の最新株価 (終値): {latest_price:.2f} USD", color="info")
-    except Exception as e:
-        return dbc.Alert(f"Error: {e}", color="danger")
-
-# アプリケーションの起動（ローカル実行用）
+# Flaskサーバーでアプリを実行（ローカル環境用）
 if __name__ == "__main__":
-    server.run(debug=True, host="0.0.0.0", port=8080)  # 必ず `port=8080` を設定！
+    port = int(os.environ.get("PORT", 8080))  # Render環境でのポート設定
+    app.run(debug=False, host="0.0.0.0", port=port)  # `port` を適切に設定
