@@ -10,6 +10,9 @@ import plotly.graph_objs as go
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
 app.title = "株価予測ダッシュボード"
 
+# Flaskのサーバーインスタンスを取得（RenderでのGunicorn起動用）
+server = app.server  # これを追加！
+
 # アプリケーションのレイアウト
 app.layout = dbc.Container([
     dcc.Tabs(id="tabs", value="tab1", children=[
