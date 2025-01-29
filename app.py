@@ -63,6 +63,73 @@ app.layout = dbc.Container([
     ])
 ], fluid=True)
 
+# 日付フォーマット修正関数
+def fix_date_format(date_str):
+    try:
+        return pd.to_datetime(date_str).strftime("%Y-%m-%d")
+    except Exception:
+        raise ValueError("日付フォーマットが正しくありません。YYYY-MM-DD形式で入力してください。")
+
+# 株価予測コールバック
+@app.callback(
+    Output("prediction-output", "children"),
+    Input("predict_button", "n_clicks"),
+    State("tickers", "value"),
+    State("start_date", "value"),
+    State("end_date", "value"),
+    State("forecast_days", "value"),
+)
+def predict_stock_price(n_clicks, tickers, start_date, end_date, forecast_days):
+    if n_clicks is None or n_clicks == 0:  # 初回ロード時に実行されないようにする
+        return ""
+
+    print(f"予測を実行: {tickers}, {start_date}, {end_date}, {forecast_days}")  # デバッグ用
+
+    # 入力値が適切か確認
+    if not tickers or not start_date or not end_date or not forecast_days:
+        return dbc.Alert("すべての入力欄を正しく埋めてください。", color="danger")
+
+    try:
+        start_date = fix_date_format(start_date)
+        end_date = fix_date_format(end_date)
+    except ValueError as e:
+        return dbc.Alert(str(e), color="danger")
+
+    tickers = tickers.split(",")[:4]
+    graphs = []
+    for ticker in tickers:
+        ticker = ticker.strip()
+        try:
+            print(f"{ticker} のデータを取得中...")  # デバッグ用
+            data = yf.download(ticker, start=start_date, end=end_date)
+            if data.empty:
+                raise ValueError(f"{ticker} にデータが見つかりません。")
+
+            data = data[['Close']].reset_index()
+            data.columns = ['ds', 'y']
+            data['ds'] = pd.to_datetime(data['ds'])
+            data['ds'] = data['ds'].dt.tz_localize(None)
+
+            # Prophetモデルで予測
+            print(f"{ticker} の予測を実行中...")  # デバッグ用
+            model = Prophet()
+            model.fit(data)
+            future = model.make_future_dataframe(periods=int(forecast_days))
+            forecast = model.predict(future)
+
+            # グラフ作成
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=data['ds'], y=data['y'], mode="lines", name=f"{ticker} 実績"))
+            fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], mode="lines", name=f"{ticker} 予測"))
+            fig.update_layout(title=f"{ticker} 株価予測", xaxis_title="Day", yaxis_title="Price")
+
+            graphs.append(dcc.Graph(figure=fig))
+        except Exception as e:
+            print(f"{ticker} のエラー: {e}")  # デバッグ用
+            graphs.append(dbc.Alert(f"{ticker} のエラー: {e}", color="danger"))
+
+    return graphs
+
 # Flaskサーバーでアプリを実行（ローカル環境用）
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))  # Render環境でのポート設定
