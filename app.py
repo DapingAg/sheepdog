@@ -63,7 +63,7 @@ app.layout = dbc.Container([
                     ]),
 
                     html.Div([dbc.Label(id="forecast-days-label"), dbc.Input(id="forecast_days", type="number", placeholder="30", value=30, className="mb-3")]),
-                    dbc.Button(id="predict_button", color="primary", className="my-3"),
+                    dbc.Button("予測を実行", id="predict_button", color="primary", className="my-3"),
                     html.Div(id="prediction-output"),
                 ], width=12)
             ])
@@ -76,46 +76,13 @@ app.layout = dbc.Container([
                     html.H1(id="realtime-title", className="text-center my-4"),
                     dbc.Label(id="realtime-ticker-label"),
                     dbc.Input(id="realtime_ticker", type="text", placeholder="例: AAPL", className="mb-3"),
-                    dbc.Button(id="realtime_button", color="success", className="my-3"),
+                    dbc.Button("データ取得", id="realtime_button", color="success", className="my-3"),
                     html.Div(id="realtime-output"),
                 ], width=6)
             ])
         ])
     ])
 ], fluid=True)
-
-
-# 言語切り替えコールバック
-@app.callback(
-    [Output("app-title", "children"),
-     Output("ticker1-label", "children"),
-     Output("ticker2-label", "children"),
-     Output("ticker3-label", "children"),
-     Output("ticker4-label", "children"),
-     Output("start-date-label", "children"),
-     Output("end-date-label", "children"),
-     Output("forecast-days-label", "children"),
-     Output("predict_button", "children"),
-     Output("realtime-title", "children"),
-     Output("realtime-ticker-label", "children"),
-     Output("realtime_button", "children")],
-    [Input("language-selector", "value")]
-)
-def update_language(lang):
-    return (
-        translations["title"][lang],
-        translations["ticker_label1"][lang],
-        translations["ticker_label2"][lang],
-        translations["ticker_label3"][lang],
-        translations["ticker_label4"][lang],
-        translations["start_date"][lang],
-        translations["end_date"][lang],
-        translations["forecast_days"][lang],
-        translations["predict_button"][lang],
-        translations["realtime_title"][lang],
-        translations["realtime_ticker"][lang],
-        translations["realtime_button"][lang],
-    )
 
 
 # ✅ **株価予測のコールバック**
@@ -131,15 +98,36 @@ def update_language(lang):
     State("forecast_days", "value"),
 )
 def predict_stock_price(n_clicks, t1, t2, t3, t4, start_date, end_date, forecast_days):
-    if n_clicks is None or n_clicks == 0:
+    if n_clicks is None:
         return ""
 
-    tickers = [t1, t2, t3, t4]
-    tickers = [t for t in tickers if t]  # 空の入力を除外
+    tickers = [t for t in [t1, t2, t3, t4] if t]
     if not tickers:
         return dbc.Alert("銘柄を入力してください。", color="danger")
 
-    return dbc.Alert(f"予測実行: {tickers}, {start_date} 〜 {end_date}, 予測日数: {forecast_days}", color="info")
+    results = []
+    for ticker in tickers:
+        try:
+            data = yf.download(ticker, start=start_date, end=end_date)
+            if data.empty:
+                raise ValueError(f"{ticker} のデータが見つかりません。")
+            data = data[['Close']].reset_index()
+            data.columns = ['ds', 'y']
+            model = Prophet()
+            model.fit(data)
+            future = model.make_future_dataframe(periods=int(forecast_days))
+            forecast = model.predict(future)
+
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=data['ds'], y=data['y'], mode="lines", name=f"{ticker} 実績"))
+            fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], mode="lines", name=f"{ticker} 予測"))
+            fig.update_layout(title=f"{ticker} 株価予測", xaxis_title="Day", yaxis_title="Price")
+
+            results.append(dcc.Graph(figure=fig))
+        except Exception as e:
+            results.append(dbc.Alert(str(e), color="danger"))
+
+    return results
 
 
 # ✅ **リアルタイム株価データ取得のコールバック**
@@ -149,10 +137,17 @@ def predict_stock_price(n_clicks, t1, t2, t3, t4, start_date, end_date, forecast
     State("realtime_ticker", "value"),
 )
 def get_realtime_data(n_clicks, ticker):
-    if n_clicks is None or n_clicks == 0 or not ticker:
+    if n_clicks is None or not ticker:
         return ""
 
-    return dbc.Alert(f"リアルタイムデータ取得: {ticker}", color="info")
+    try:
+        data = yf.download(ticker, period="1d", interval="1d")
+        if data.empty:
+            raise ValueError(f"{ticker} のデータが見つかりません。")
+        latest_price = round(float(data["Close"].iloc[-1]), 2)
+        return dbc.Alert(f"{ticker} の最新株価 (終値): {latest_price} USD", color="info")
+    except Exception as e:
+        return dbc.Alert(f"Error: {e}", color="danger")
 
 
 # Flaskサーバーでアプリを実行
