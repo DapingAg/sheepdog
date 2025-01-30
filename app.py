@@ -19,8 +19,11 @@ languages = {"ja": "日本語", "en": "English"}
 
 # 言語に対応したラベルを設定
 translations = {
-    "title": {"ja": "株価予測アプリ", "en": "Stock Price Prediction"},
-    "ticker_label": {"ja": "ティッカーシンボル:", "en": "Ticker Symbols:"},
+    "title": {"ja": "株価予測", "en": "Stock Price Prediction"},
+    "ticker_label1": {"ja": "ティッカーシンボル1:", "en": "Ticker Symbol 1:"},
+    "ticker_label2": {"ja": "ティッカーシンボル2:", "en": "Ticker Symbol 2:"},
+    "ticker_label3": {"ja": "ティッカーシンボル3:", "en": "Ticker Symbol 3:"},
+    "ticker_label4": {"ja": "ティッカーシンボル4:", "en": "Ticker Symbol 4:"},
     "start_date": {"ja": "開始日:", "en": "Start Date:"},
     "end_date": {"ja": "終了日:", "en": "End Date:"},
     "forecast_days": {"ja": "予測日数:", "en": "Forecast Days:"},
@@ -124,10 +127,10 @@ app.layout = dbc.Container([
 def update_language(lang):
     return (
         translations["title"][lang],
-        translations["ticker_label"][lang],
-        translations["ticker_label"][lang],
-        translations["ticker_label"][lang],
-        translations["ticker_label"][lang],
+        translations["ticker_label1"][lang],
+        translations["ticker_label2"][lang],
+        translations["ticker_label3"][lang],
+        translations["ticker_label4"][lang],
         translations["start_date"][lang],
         translations["end_date"][lang],
         translations["forecast_days"][lang],
