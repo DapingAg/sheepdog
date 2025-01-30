@@ -81,40 +81,7 @@ app.layout = dbc.Container([
 ], fluid=True)
 
 
-# 言語切り替えコールバック
-@app.callback(
-    [Output("app-title", "children"),
-     Output("ticker1-label", "children"),
-     Output("ticker2-label", "children"),
-     Output("ticker3-label", "children"),
-     Output("ticker4-label", "children"),
-     Output("start-date-label", "children"),
-     Output("end-date-label", "children"),
-     Output("forecast-days-label", "children"),
-     Output("predict_button", "children"),
-     Output("realtime-title", "children"),
-     Output("realtime-ticker-label", "children"),
-     Output("realtime_button", "children")],
-    [Input("language-selector", "value")]
-)
-def update_language(lang):
-    return (
-        translations["title"][lang],
-        translations["ticker_label1"][lang],
-        translations["ticker_label2"][lang],
-        translations["ticker_label3"][lang],
-        translations["ticker_label4"][lang],
-        translations["start_date"][lang],
-        translations["end_date"][lang],
-        translations["forecast_days"][lang],
-        translations["predict_button"][lang],
-        translations["realtime_title"][lang],
-        translations["realtime_ticker"][lang],
-        translations["realtime_button"][lang],
-    )
-
-
-# 株価予測
+# ✅ 株価予測
 @app.callback(
     Output("prediction-output", "children"),
     Input("predict_button", "n_clicks"),
@@ -139,10 +106,16 @@ def predict_stock_price(n_clicks, *args):
             data = yf.download(ticker, start=start_date, end=end_date)
             data = data[['Close']].reset_index()
             data.columns = ['ds', 'y']
+            data = data.dropna()
+            if len(data) < 2:
+                raise ValueError(f"{ticker} のデータが少なすぎます。期間を変更してください。")
+
+            # 移動平均（ノイズ除去）
             data['y'] = data['y'].rolling(window=5, min_periods=1).mean()
 
             model = Prophet(changepoint_prior_scale=0.05)
             model.fit(data)
+
             future = model.make_future_dataframe(periods=int(forecast_days))
             forecast = model.predict(future)
 
