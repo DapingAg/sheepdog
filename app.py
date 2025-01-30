@@ -7,12 +7,10 @@ import pandas as pd
 import plotly.graph_objs as go
 import os
 
-# Dashアプリケーションの初期化（Bootstrapテーマ適用）
+# Dashアプリの初期化
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
 app.title = "株価予測アプリ (Sheepdog Stock Prediction)"
-
-# Flaskのサーバーインスタンスを取得（Gunicorn用）
-server = app.server
+server = app.server  # Render / Gunicorn 用
 
 # 言語オプション（日本語 / 英語）
 languages = {"ja": "日本語", "en": "English"}
@@ -33,7 +31,7 @@ translations = {
     "realtime_button": {"ja": "データ取得", "en": "Fetch Data"}
 }
 
-# アプリケーションのレイアウト
+# UI レイアウト
 app.layout = dbc.Container([
     dcc.Dropdown(
         id="language-selector",
@@ -44,7 +42,6 @@ app.layout = dbc.Container([
     ),
     
     dcc.Tabs(id="tabs", value="tab1", children=[
-        # タブ1: 株価予測
         dcc.Tab(label="株価予測 / Stock Prediction", value="tab1", children=[
             dbc.Row([
                 dbc.Col([
@@ -69,7 +66,6 @@ app.layout = dbc.Container([
             ])
         ]),
 
-        # タブ2: リアルタイム株価データ
         dcc.Tab(label="リアルタイム株価データ / Real-time Prices", value="tab2", children=[
             dbc.Row([
                 dbc.Col([
@@ -85,7 +81,40 @@ app.layout = dbc.Container([
 ], fluid=True)
 
 
-# ✅ **株価予測のコールバック**
+# 言語切り替えコールバック
+@app.callback(
+    [Output("app-title", "children"),
+     Output("ticker1-label", "children"),
+     Output("ticker2-label", "children"),
+     Output("ticker3-label", "children"),
+     Output("ticker4-label", "children"),
+     Output("start-date-label", "children"),
+     Output("end-date-label", "children"),
+     Output("forecast-days-label", "children"),
+     Output("predict_button", "children"),
+     Output("realtime-title", "children"),
+     Output("realtime-ticker-label", "children"),
+     Output("realtime_button", "children")],
+    [Input("language-selector", "value")]
+)
+def update_language(lang):
+    return (
+        translations["title"][lang],
+        translations["ticker_label1"][lang],
+        translations["ticker_label2"][lang],
+        translations["ticker_label3"][lang],
+        translations["ticker_label4"][lang],
+        translations["start_date"][lang],
+        translations["end_date"][lang],
+        translations["forecast_days"][lang],
+        translations["predict_button"][lang],
+        translations["realtime_title"][lang],
+        translations["realtime_ticker"][lang],
+        translations["realtime_button"][lang],
+    )
+
+
+# 株価予測
 @app.callback(
     Output("prediction-output", "children"),
     Input("predict_button", "n_clicks"),
@@ -97,23 +126,22 @@ app.layout = dbc.Container([
     State("end_date", "value"),
     State("forecast_days", "value"),
 )
-def predict_stock_price(n_clicks, t1, t2, t3, t4, start_date, end_date, forecast_days):
-    if n_clicks is None:
+def predict_stock_price(n_clicks, *args):
+    if not n_clicks:
         return ""
 
-    tickers = [t for t in [t1, t2, t3, t4] if t]
-    if not tickers:
-        return dbc.Alert("銘柄を入力してください。", color="danger")
+    tickers = [t for t in args[:4] if t]
+    start_date, end_date, forecast_days = args[4:]
 
     results = []
     for ticker in tickers:
         try:
             data = yf.download(ticker, start=start_date, end=end_date)
-            if data.empty:
-                raise ValueError(f"{ticker} のデータが見つかりません。")
             data = data[['Close']].reset_index()
             data.columns = ['ds', 'y']
-            model = Prophet()
+            data['y'] = data['y'].rolling(window=5, min_periods=1).mean()
+
+            model = Prophet(changepoint_prior_scale=0.05)
             model.fit(data)
             future = model.make_future_dataframe(periods=int(forecast_days))
             forecast = model.predict(future)
@@ -121,7 +149,6 @@ def predict_stock_price(n_clicks, t1, t2, t3, t4, start_date, end_date, forecast
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=data['ds'], y=data['y'], mode="lines", name=f"{ticker} 実績"))
             fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], mode="lines", name=f"{ticker} 予測"))
-            fig.update_layout(title=f"{ticker} 株価予測", xaxis_title="Day", yaxis_title="Price")
 
             results.append(dcc.Graph(figure=fig))
         except Exception as e:
@@ -129,28 +156,5 @@ def predict_stock_price(n_clicks, t1, t2, t3, t4, start_date, end_date, forecast
 
     return results
 
-
-# ✅ **リアルタイム株価データ取得のコールバック**
-@app.callback(
-    Output("realtime-output", "children"),
-    Input("realtime_button", "n_clicks"),
-    State("realtime_ticker", "value"),
-)
-def get_realtime_data(n_clicks, ticker):
-    if n_clicks is None or not ticker:
-        return ""
-
-    try:
-        data = yf.download(ticker, period="1d", interval="1d")
-        if data.empty:
-            raise ValueError(f"{ticker} のデータが見つかりません。")
-        latest_price = round(float(data["Close"].iloc[-1]), 2)
-        return dbc.Alert(f"{ticker} の最新株価 (終値): {latest_price} USD", color="info")
-    except Exception as e:
-        return dbc.Alert(f"Error: {e}", color="danger")
-
-
-# Flaskサーバーでアプリを実行
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(debug=False, host="0.0.0.0", port=port)
+    app.run(debug=False, host="0.0.0.0", port=8080)
