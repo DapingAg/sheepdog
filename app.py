@@ -20,10 +20,10 @@ languages = {"ja": "日本語", "en": "English"}
 # 言語に対応したラベルを設定
 translations = {
     "title": {"ja": "株価予測", "en": "Stock Price Prediction"},
-    "ticker_label1": {"ja": "ティッカーシンボル1:", "en": "Ticker Symbol 1:"},
-    "ticker_label2": {"ja": "ティッカーシンボル2:", "en": "Ticker Symbol 2:"},
-    "ticker_label3": {"ja": "ティッカーシンボル3:", "en": "Ticker Symbol 3:"},
-    "ticker_label4": {"ja": "ティッカーシンボル4:", "en": "Ticker Symbol 4:"},
+    "ticker_label1": {"ja": "ティッカーシンボル①:", "en": "Ticker Symbol 1:"},
+    "ticker_label2": {"ja": "ティッカーシンボル②:", "en": "Ticker Symbol 2:"},
+    "ticker_label3": {"ja": "ティッカーシンボル③:", "en": "Ticker Symbol 3:"},
+    "ticker_label4": {"ja": "ティッカーシンボル④:", "en": "Ticker Symbol 4:"},
     "start_date": {"ja": "開始日:", "en": "Start Date:"},
     "end_date": {"ja": "終了日:", "en": "End Date:"},
     "forecast_days": {"ja": "予測日数:", "en": "Forecast Days:"},
@@ -49,41 +49,20 @@ app.layout = dbc.Container([
             dbc.Row([
                 dbc.Col([
                     html.H1(id="app-title", className="text-center my-4"),
-
+                    
                     dbc.Row([
-                        dbc.Col([
-                            dbc.Label(id="ticker1-label"),
-                            dbc.Input(id="ticker1", type="text", placeholder="例: AAPL", className="mb-3"),
-                        ]),
-                        dbc.Col([
-                            dbc.Label(id="ticker2-label"),
-                            dbc.Input(id="ticker2", type="text", placeholder="例: GOOG", className="mb-3"),
-                        ]),
-                        dbc.Col([
-                            dbc.Label(id="ticker3-label"),
-                            dbc.Input(id="ticker3", type="text", placeholder="例: MSFT", className="mb-3"),
-                        ]),
-                        dbc.Col([
-                            dbc.Label(id="ticker4-label"),
-                            dbc.Input(id="ticker4", type="text", placeholder="例: TSLA", className="mb-3"),
-                        ]),
+                        dbc.Col([dbc.Label(id="ticker1-label"), dbc.Input(id="ticker1", type="text", placeholder="例: AAPL", className="mb-3")]),
+                        dbc.Col([dbc.Label(id="ticker2-label"), dbc.Input(id="ticker2", type="text", placeholder="例: GOOG", className="mb-3")]),
+                        dbc.Col([dbc.Label(id="ticker3-label"), dbc.Input(id="ticker3", type="text", placeholder="例: MSFT", className="mb-3")]),
+                        dbc.Col([dbc.Label(id="ticker4-label"), dbc.Input(id="ticker4", type="text", placeholder="例: TSLA", className="mb-3")]),
                     ]),
 
                     dbc.Row([
-                        dbc.Col([
-                            dbc.Label(id="start-date-label"),
-                            dbc.Input(id="start_date", type="text", placeholder="YYYY-MM-DD", className="mb-3"),
-                        ]),
-                        dbc.Col([
-                            dbc.Label(id="end-date-label"),
-                            dbc.Input(id="end_date", type="text", placeholder="YYYY-MM-DD", className="mb-3"),
-                        ])
+                        dbc.Col([dbc.Label(id="start-date-label"), dbc.Input(id="start_date", type="text", placeholder="YYYY-MM-DD", className="mb-3")]),
+                        dbc.Col([dbc.Label(id="end-date-label"), dbc.Input(id="end_date", type="text", placeholder="YYYY-MM-DD", className="mb-3")])
                     ]),
 
-                    html.Div([
-                        dbc.Label(id="forecast-days-label"),
-                        dbc.Input(id="forecast_days", type="number", placeholder="30", value=30, className="mb-3"),
-                    ]),
+                    html.Div([dbc.Label(id="forecast-days-label"), dbc.Input(id="forecast_days", type="number", placeholder="30", value=30, className="mb-3")]),
                     dbc.Button(id="predict_button", color="primary", className="my-3"),
                     html.Div(id="prediction-output"),
                 ], width=12)
@@ -95,10 +74,8 @@ app.layout = dbc.Container([
             dbc.Row([
                 dbc.Col([
                     html.H1(id="realtime-title", className="text-center my-4"),
-                    html.Div([
-                        dbc.Label(id="realtime-ticker-label"),
-                        dbc.Input(id="realtime_ticker", type="text", placeholder="例: AAPL", className="mb-3"),
-                    ]),
+                    dbc.Label(id="realtime-ticker-label"),
+                    dbc.Input(id="realtime_ticker", type="text", placeholder="例: AAPL", className="mb-3"),
                     dbc.Button(id="realtime_button", color="success", className="my-3"),
                     html.Div(id="realtime-output"),
                 ], width=6)
@@ -139,6 +116,44 @@ def update_language(lang):
         translations["realtime_ticker"][lang],
         translations["realtime_button"][lang],
     )
+
+
+# ✅ **株価予測のコールバック**
+@app.callback(
+    Output("prediction-output", "children"),
+    Input("predict_button", "n_clicks"),
+    State("ticker1", "value"),
+    State("ticker2", "value"),
+    State("ticker3", "value"),
+    State("ticker4", "value"),
+    State("start_date", "value"),
+    State("end_date", "value"),
+    State("forecast_days", "value"),
+)
+def predict_stock_price(n_clicks, t1, t2, t3, t4, start_date, end_date, forecast_days):
+    if n_clicks is None or n_clicks == 0:
+        return ""
+
+    tickers = [t1, t2, t3, t4]
+    tickers = [t for t in tickers if t]  # 空の入力を除外
+    if not tickers:
+        return dbc.Alert("銘柄を入力してください。", color="danger")
+
+    return dbc.Alert(f"予測実行: {tickers}, {start_date} 〜 {end_date}, 予測日数: {forecast_days}", color="info")
+
+
+# ✅ **リアルタイム株価データ取得のコールバック**
+@app.callback(
+    Output("realtime-output", "children"),
+    Input("realtime_button", "n_clicks"),
+    State("realtime_ticker", "value"),
+)
+def get_realtime_data(n_clicks, ticker):
+    if n_clicks is None or n_clicks == 0 or not ticker:
+        return ""
+
+    return dbc.Alert(f"リアルタイムデータ取得: {ticker}", color="info")
+
 
 # Flaskサーバーでアプリを実行
 if __name__ == "__main__":
