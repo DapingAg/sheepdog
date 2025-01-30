@@ -80,12 +80,11 @@ def fix_date_format(date_str):
     State("forecast_days", "value"),
 )
 def predict_stock_price(n_clicks, tickers, start_date, end_date, forecast_days):
-    if n_clicks is None or n_clicks == 0:  # 初回ロード時に実行されないようにする
+    if n_clicks is None or n_clicks == 0:  # 初回ロード時は実行しない
         return ""
 
     print(f"予測を実行: {tickers}, {start_date}, {end_date}, {forecast_days}")  # デバッグ用
 
-    # 入力値が適切か確認
     if not tickers or not start_date or not end_date or not forecast_days:
         return dbc.Alert("すべての入力欄を正しく埋めてください。", color="danger")
 
@@ -130,7 +129,40 @@ def predict_stock_price(n_clicks, tickers, start_date, end_date, forecast_days):
 
     return graphs
 
-# Flaskサーバーでアプリを実行（ローカル環境用）
+# リアルタイム株価データ取得コールバック
+@app.callback(
+    Output("realtime-output", "children"),
+    Input("realtime_button", "n_clicks"),
+    State("realtime_ticker", "value"),
+)
+def get_realtime_data(n_clicks, ticker):
+    if n_clicks is None or n_clicks == 0:  # 初回ロード時は何も表示しない
+        return ""
+
+    print(f"リアルタイムデータ取得開始: {ticker}")  # デバッグ用
+
+    if not ticker:
+        return dbc.Alert("ティッカーシンボルを入力してください。", color="danger")
+
+    try:
+        data = yf.download(ticker, period="1d", interval="1d")
+
+        print(f"{ticker} のデータ取得完了")  # デバッグ用
+
+        if data.empty:
+            raise ValueError(f"{ticker} にデータが見つかりません。")
+
+        latest_price = float(data["Close"].iloc[-1])
+
+        print(f"{ticker} の最新株価: {latest_price}")  # デバッグ用
+
+        return dbc.Alert(f"{ticker} の最新株価 (終値): {latest_price:.2f} USD", color="info")
+
+    except Exception as e:
+        print(f"エラー: {e}")  # デバッグ用
+        return dbc.Alert(f"エラー: {e}", color="danger")
+
+# Flaskサーバーでアプリを実行
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))  # Render環境でのポート設定
-    app.run(debug=False, host="0.0.0.0", port=port)  # `port` を適切に設定
+    port = int(os.environ.get("PORT", 8080))  
+    app.run(debug=False, host="0.0.0.0", port=port)
