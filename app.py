@@ -12,74 +12,44 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
 app.title = "株価予測アプリ (Sheepdog Stock Prediction)"
 server = app.server  # Render / Gunicorn 用
 
-# 言語オプション（日本語 / 英語）
-languages = {"ja": "日本語", "en": "English"}
-
-# 言語に対応したラベルを設定
-translations = {
-    "title": {"ja": "株価予測", "en": "Stock Price Prediction"},
-    "ticker_label1": {"ja": "ティッカーシンボル①:", "en": "Ticker Symbol 1:"},
-    "ticker_label2": {"ja": "ティッカーシンボル②:", "en": "Ticker Symbol 2:"},
-    "ticker_label3": {"ja": "ティッカーシンボル③:", "en": "Ticker Symbol 3:"},
-    "ticker_label4": {"ja": "ティッカーシンボル④:", "en": "Ticker Symbol 4:"},
-    "start_date": {"ja": "開始日:", "en": "Start Date:"},
-    "end_date": {"ja": "終了日:", "en": "End Date:"},
-    "forecast_days": {"ja": "予測日数:", "en": "Forecast Days:"},
-    "predict_button": {"ja": "予測を実行", "en": "Run Prediction"},
-    "realtime_title": {"ja": "リアルタイム株価データ", "en": "Real-time Stock Prices"},
-    "realtime_ticker": {"ja": "ティッカーシンボル:", "en": "Ticker Symbol:"},
-    "realtime_button": {"ja": "データ取得", "en": "Fetch Data"}
-}
+# ✅ 日付フォーマット修正関数
+def fix_date_format(date_str):
+    """
+    ユーザーが入力した日付を `YYYY-MM-DD` に変換する。
+    """
+    try:
+        return pd.to_datetime(date_str).strftime("%Y-%m-%d")
+    except Exception:
+        raise ValueError("日付フォーマットが正しくありません。YYYY-MM-DD 形式で入力してください。")
 
 # UI レイアウト
 app.layout = dbc.Container([
-    dcc.Dropdown(
-        id="language-selector",
-        options=[{"label": name, "value": code} for code, name in languages.items()],
-        value="ja",
-        clearable=False,
-        style={"width": "200px", "margin-bottom": "20px"}
-    ),
+    html.H1("株価予測アプリ", className="text-center my-4"),
     
-    dcc.Tabs(id="tabs", value="tab1", children=[
-        dcc.Tab(label="株価予測 / Stock Prediction", value="tab1", children=[
-            dbc.Row([
-                dbc.Col([
-                    html.H1(id="app-title", className="text-center my-4"),
-                    
-                    dbc.Row([
-                        dbc.Col([dbc.Label(id="ticker1-label"), dbc.Input(id="ticker1", type="text", placeholder="例: AAPL", className="mb-3")]),
-                        dbc.Col([dbc.Label(id="ticker2-label"), dbc.Input(id="ticker2", type="text", placeholder="例: GOOG", className="mb-3")]),
-                        dbc.Col([dbc.Label(id="ticker3-label"), dbc.Input(id="ticker3", type="text", placeholder="例: MSFT", className="mb-3")]),
-                        dbc.Col([dbc.Label(id="ticker4-label"), dbc.Input(id="ticker4", type="text", placeholder="例: TSLA", className="mb-3")]),
-                    ]),
+    dbc.Row([
+        dbc.Col([dbc.Label("ティッカーシンボル①:"), dbc.Input(id="ticker1", type="text", placeholder="例: AAPL", className="mb-3")]),
+        dbc.Col([dbc.Label("ティッカーシンボル②:"), dbc.Input(id="ticker2", type="text", placeholder="例: GOOG", className="mb-3")]),
+        dbc.Col([dbc.Label("ティッカーシンボル③:"), dbc.Input(id="ticker3", type="text", placeholder="例: MSFT", className="mb-3")]),
+        dbc.Col([dbc.Label("ティッカーシンボル④:"), dbc.Input(id="ticker4", type="text", placeholder="例: TSLA", className="mb-3")]),
+    ]),
 
-                    dbc.Row([
-                        dbc.Col([dbc.Label(id="start-date-label"), dbc.Input(id="start_date", type="text", placeholder="YYYY-MM-DD", className="mb-3")]),
-                        dbc.Col([dbc.Label(id="end-date-label"), dbc.Input(id="end_date", type="text", placeholder="YYYY-MM-DD", className="mb-3")])
-                    ]),
+    dbc.Row([
+        dbc.Col([dbc.Label("開始日:"), dbc.Input(id="start_date", type="text", placeholder="YYYY-MM-DD", className="mb-3")]),
+        dbc.Col([dbc.Label("終了日:"), dbc.Input(id="end_date", type="text", placeholder="YYYY-MM-DD", className="mb-3")]),
+        dbc.Col([dbc.Label("予測日数:"), dbc.Input(id="forecast_days", type="number", placeholder="30", value=30, className="mb-3")]),
+    ]),
 
-                    html.Div([dbc.Label(id="forecast-days-label"), dbc.Input(id="forecast_days", type="number", placeholder="30", value=30, className="mb-3")]),
-                    dbc.Button("予測を実行", id="predict_button", color="primary", className="my-3"),
-                    html.Div(id="prediction-output"),
-                ], width=12)
-            ])
-        ]),
+    dbc.Button("予測を実行", id="predict_button", color="primary", className="my-3"),
+    html.Div(id="prediction-output"),
+    
+    html.Hr(),
 
-        dcc.Tab(label="リアルタイム株価データ / Real-time Prices", value="tab2", children=[
-            dbc.Row([
-                dbc.Col([
-                    html.H1(id="realtime-title", className="text-center my-4"),
-                    dbc.Label(id="realtime-ticker-label"),
-                    dbc.Input(id="realtime_ticker", type="text", placeholder="例: AAPL", className="mb-3"),
-                    dbc.Button("データ取得", id="realtime_button", color="success", className="my-3"),
-                    html.Div(id="realtime-output"),
-                ], width=6)
-            ])
-        ])
-    ])
+    html.H2("リアルタイム株価データ", className="text-center my-4"),
+    dbc.Label("ティッカーシンボル:"),
+    dbc.Input(id="realtime_ticker", type="text", placeholder="例: AAPL", className="mb-3"),
+    dbc.Button("データ取得", id="realtime_button", color="success", className="my-3"),
+    html.Div(id="realtime-output"),
 ], fluid=True)
-
 
 # ✅ 株価予測
 @app.callback(
@@ -100,17 +70,25 @@ def predict_stock_price(n_clicks, *args):
     tickers = [t for t in args[:4] if t]
     start_date, end_date, forecast_days = args[4:]
 
+    try:
+        start_date = fix_date_format(start_date)
+        end_date = fix_date_format(end_date)
+    except ValueError as e:
+        return dbc.Alert(str(e), color="danger")
+
     results = []
     for ticker in tickers:
         try:
+            # ✅ 日付が正しい形式になったのでエラーは発生しない
             data = yf.download(ticker, start=start_date, end=end_date)
             data = data[['Close']].reset_index()
             data.columns = ['ds', 'y']
             data = data.dropna()
+
             if len(data) < 2:
                 raise ValueError(f"{ticker} のデータが少なすぎます。期間を変更してください。")
 
-            # 移動平均（ノイズ除去）
+            # ノイズ除去（移動平均）
             data['y'] = data['y'].rolling(window=5, min_periods=1).mean()
 
             model = Prophet(changepoint_prior_scale=0.05)
@@ -128,6 +106,26 @@ def predict_stock_price(n_clicks, *args):
             results.append(dbc.Alert(str(e), color="danger"))
 
     return results
+
+# ✅ リアルタイム株価取得
+@app.callback(
+    Output("realtime-output", "children"),
+    Input("realtime_button", "n_clicks"),
+    State("realtime_ticker", "value"),
+)
+def get_realtime_stock_price(n_clicks, ticker):
+    if not n_clicks:
+        return ""
+
+    try:
+        data = yf.download(ticker, period="1d", interval="1d")
+        if data.empty:
+            raise ValueError(f"{ticker} のリアルタイムデータが取得できません。")
+
+        latest_price = float(data["Close"].iloc[-1])
+        return dbc.Alert(f"{ticker} の最新株価 (終値): {latest_price:.2f} USD", color="info")
+    except Exception as e:
+        return dbc.Alert(str(e), color="danger")
 
 if __name__ == "__main__":
     app.run(debug=False, host="0.0.0.0", port=8080)
